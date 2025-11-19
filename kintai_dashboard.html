@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤怠システム移行について</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .timeline-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        .timeline-dot {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .timeline-line {
+            height: 4px;
+            flex-grow: 1;
+            background-color: #93c5fd; /* blue-300 */
+        }
+        .flow-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .flow-step-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+        .flow-arrow {
+            font-size: 2rem;
+            color: #9ca3af; /* gray-400 */
+            margin-left: 1rem;
+            margin-right: 1rem;
+        }
+    </style>
+    <!-- 
+      Mandatory libraries as per instructions.
+      Chart.js and its date adapter are included, though this specific report
+      contains no quantitative data, so no charts are rendered.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns/dist/date-fns.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.min.js"></script>
+    
+    <!-- Chosen Palette: "Calm Harmony" (Light neutrals - bg-slate-50, text-slate-800, with a professional blue accent - bg-blue-600, text-blue-700) -->
+    <!-- Application Structure Plan: The SPA is designed as a task-oriented dashboard, moving away from the report's linear structure. The primary goal is to answer the employee's main question: "What do *I* need to do differently?" This is achieved via a prominent interactive toggle ("At Office" vs. "At Home") that dynamically displays the *only* relevant workflow for the user. This is more usable than forcing them to read both. This core module is supported by other visually distinct, scannable modules: 1) A clear announcement banner, 2) A visual timeline for the schedule, and 3) A grid-based section for key comparisons and critical "must-know" warnings (like the lack of customization). This structure prioritizes immediate, relevant answers and quick comprehension. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Core process changes (Sections 3-1, 3-2). Goal: Organize/Inform. Viz: Interactive HTML/JS card toggle. Interaction: User clicks "Office" or "Home" button. JS hides/shows the relevant workflow diagram. Justification: This is the most critical information and must be user-centric.
+        - Report Info: Migration Schedule (Section 2 Table). Goal: Show change. Viz: Horizontal Timeline Diagram (HTML/CSS Flexbox). Interaction: None (static visual). Justification: A visual timeline is more intuitive for a schedule than a text table.
+        - Report Info: Daily Approval (Section 3-3). Goal: Compare. Viz: Simple HTML Table. Interaction: None. Justification: Directly compares the two scenarios (Auto vs. Manual) clearly.
+        - Report Info: System Comparison (Section 1 Table). Goal: Compare. Viz: Simple HTML Table. Interaction: None. Justification: A table is the clearest way to present this. (Note: Omitted for brevity to focus on the *new* process, which is the app's goal).
+        - Report Info: Key Warnings (Section 4). Goal: Inform (Warn). Viz: Styled "Alert" boxes (HTML/Tailwind) with Unicode icons (⚠️, ℹ️). Interaction: None. Justification: Effectively draws user attention to critical constraints.
+        - Charts (Chart.js): The source report contains no quantitative data suitable for charts. Therefore, no charts are implemented, as this would require fabricating data. The libraries are included per technical requirements.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-700">勤怠システム移行について</h1>
+            <p class="text-lg text-slate-600 mt-2">HRMOS勤怠へのスムーズな移行ガイド</p>
+        </header>
+
+        <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4">重要なお知らせ</h2>
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-5 rounded-md">
+                <p class="font-bold text-lg">2025年12月1日（月）より新システム「HRMOS勤怠」を本格運用開始します。</p>
+                <p class="mt-2">11月28日（金）までを試験運用期間として、この期間中に新しい操作方法に慣れていただくよう、ご協力をお願いいたします。</p>
+            </div>
+        </div>
+
+        <main>
+            <!-- 1. Interactive Workflow Section -->
+            <section class="mb-10">
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3 text-center">あなたの新・勤怠フロー</h2>
+                <p class="text-center text-slate-600 mb-6 max-w-2xl mx-auto">
+                    勤務形態（出社または在宅）を選択すると、必要な操作フローが表示されます。
+                </p>
+                
+                <div class="flex justify-center gap-4 mb-6">
+                    <button id="btn-office" class="px-6 py-3 font-semibold rounded-lg shadow-md transition-all duration-200 w-40 bg-blue-600 text-white">
+                        出社
+                    </button>
+                    <button id="btn-remote" class="px-6 py-3 font-semibold rounded-lg shadow-md transition-all duration-200 w-40 bg-white text-blue-600 border border-blue-600 hover:bg-blue-50">
+                        在宅勤務
+                    </button>
+                </div>
+
+                <!-- Workflow Display Area -->
+                <div class="max-w-3xl mx-auto">
+                    <!-- Office Workflow -->
+                    <div id="flow-office" class="bg-white p-6 md:p-8 rounded-xl shadow-xl border border-blue-200">
+                        <h3 class="text-xl font-bold text-blue-700 mb-5">出社時のフロー</h3>
+                        <div class="space-y-4">
+                            <div class="flow-step">
+                                <span class="flow-step-icon bg-blue-100 text-blue-700">1</span>
+                                <p class="text-lg text-slate-800">出勤時、タブレットで打刻</p>
+                            </div>
+                            <div class="flow-step">
+                                <span class="flow-step-icon bg-blue-100 text-blue-700">2</span>
+                                <p class="text-lg text-slate-800">退勤時、タブレットで打刻</p>
+                            </div>
+                            <div class="flow-step">
+                                <span class="flow-step-icon bg-green-100 text-green-700">3</span>
+                                <p class="text-lg text-slate-800">日次勤怠の承認申請が<strong class="text-green-700">自動で提出</strong>されます</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 bg-blue-50 p-4 rounded-lg">
+                            <p class="font-semibold text-blue-800">ポイント</p>
+                            <ul class="list-disc list-inside text-blue-700 mt-2 space-y-1">
+                                <li>打刻はタブレットで行います。</li>
+                                <li>退勤打刻と同時に、日次勤怠申請が「自動で」完了します。</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Remote Workflow -->
+                    <div id="flow-remote" class="hidden bg-white p-6 md:p-8 rounded-xl shadow-xl border border-gray-300">
+                        <h3 class="text-xl font-bold text-slate-700 mb-5">在宅勤務時のフロー (手動申請)</h3>
+                        
+                        <!-- 追加されたデフォルト設定に関する注意書き -->
+                        <p class="mb-4 p-3 text-sm bg-gray-50 border-l-4 border-gray-400 text-slate-700 rounded-md">
+                            📝 デフォルトの設定は「出勤」（事務所に出社の状態）となっています。在宅勤務の場合は、以下の手順で<strong class="font-bold">手動の申請</strong>が必要です。
+                        </p>
+                        
+                        <div class="space-y-4">
+                            <div class="flow-step">
+                                <span class="flow-step-icon bg-gray-100 text-gray-700">1</span>
+                                <p class="text-lg text-slate-800">打刻は<strong class="text-red-600">不要</strong>です</p>
+                            </div>
+                            
+                            <!-- ステップ2: 勤務区分の選択 -->
+                            <div class="flow-step">
+                                <span class="flow-step-icon bg-yellow-100 text-yellow-700">2</span>
+                                <p class="text-lg text-slate-800">日次勤怠画面の該当日の**鉛筆マーク**より、勤務区分のプルダウンから<strong class="font-bold">「在宅勤務」</strong>を選択</p>
+                            </div>
+                            
+                            <!-- ステップ3: 時刻の入力 -->
+                            <div class="flow-step">
+                                <span class="flow-step-icon bg-yellow-100 text-yellow-700">3</span>
+                                <p class="text-lg text-slate-800">下部の**「編集する」**をクリックし、勤務予定表の時刻を「出勤・退勤時刻」欄に入力</p>
+                            </div>
+
+                            <!-- ステップ4: 登録と申請 -->
+                            <div class="flow-step">
+                                <span class="flow-step-icon bg-red-100 text-red-700">4</span>
+                                <p class="text-lg text-slate-800">**「登録」**をクリックすると、日次勤怠として申請されます</p>
+                            </div>
+                        </div>
+                         <div class="mt-6 bg-red-50 p-4 rounded-lg">
+                            <p class="font-semibold text-red-800">重要ポイント</p>
+                            <ul class="list-disc list-inside text-red-700 mt-2 space-y-1">
+                                <li>在宅勤務では「打刻」は不要です。</li>
+                                <li>勤務区分選択、時刻入力、承認申請の提出を<strong class="font-bold">手動で毎日</strong>行う必要があります。</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Schedule Timeline Section -->
+            <section class="mb-10 mt-16">
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-4 text-center">移行スケジュール</h2>
+                <p class="text-center text-slate-600 mb-8 max-w-2xl mx-auto">
+                    移行は3つのフェーズで進行します。特に試験運用期間中の操作の習慣化にご協力ください。
+                </p>
+                <div class="w-full bg-white p-6 md:p-8 rounded-xl shadow-lg">
+                    <div class="flex items-start">
+                        <!-- Item 1: Trial Start -->
+                        <div class="timeline-item flex-1">
+                            <div class="timeline-dot bg-blue-600 text-white shadow-lg">
+                                <span class="text-sm font-bold">1</span>
+                            </div>
+                            <p class="text-center font-semibold text-slate-800 mt-3">本日 (11/17)</p>
+                            <p class="text-center text-sm text-blue-700 font-medium">試験運用 開始</p>
+                            <p class="text-center text-xs text-slate-500 mt-1 px-2">新しい運用フローを試行してください</p>
+                        </div>
+                        
+                        <div class="timeline-line mt-5"></div>
+                        
+                        <!-- Item 2: Trial End -->
+                        <div class="timeline-item flex-1">
+                            <div class="timeline-dot bg-blue-300 text-blue-800 shadow">
+                                <span class="text-sm font-bold">2</span>
+                            </div>
+                            <p class="text-center font-semibold text-slate-800 mt-3">11月28日 (金)</p>
+                            <p class="text-center text-sm text-slate-600">試験運用 終了</p>
+                        </div>
+                        
+                        <div class="timeline-line mt-5"></div>
+                        
+                        <!-- Item 3: Go Live -->
+                        <div class="timeline-item flex-1">
+                            <div class="timeline-dot bg-green-600 text-white shadow-lg">
+                                <span class="text-sm font-bold">3</span>
+                            </div>
+                            <p class="text-center font-semibold text-slate-800 mt-3">12月1日 (月)</p>
+                            <p class="text-center text-sm text-green-700 font-medium">本格運用 開始</p>
+                            <p class="text-center text-xs text-slate-500 mt-1 px-2">「勤之助」は使用不可となります</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 3. Key Differences & Notes Section -->
+            <section class="mt-16">
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-4 text-center">主な変更点と重要事項</h2>
+                <p class="text-center text-slate-600 mb-8 max-w-2xl mx-auto">
+                    新しいシステムでは、日々の運用が大きく変わります。特に「日次申請」と「カスタマイズ」に関する点にご注意ください。
+                </p>
+                
+                <div class="grid md:grid-cols-2 gap-8">
+                    <!-- Daily Approval Table -->
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-xl font-bold text-slate-800 mb-4">日次勤怠（毎日の承認申請）</h3>
+                        <p class="text-slate-600 mb-4">原則として<strong class="text-red-600">毎日、日時勤怠の承認申請が必要</strong>です。申請フローが勤務形態によって異なります。</p>
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100">
+                                    <th class="border p-3 text-left text-sm font-semibold text-slate-700">勤務形態</th>
+                                    <th class="border p-3 text-left text-sm font-semibold text-slate-700">申請フロー</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="border p-3 font-medium">出社</td>
+                                    <td class="border p-3 text-green-700 font-semibold">退勤打刻時に<strong class="font-bold">自動で申請</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="border p-3 font-medium">在宅勤務</td>
+                                    <td class="border p-3 text-red-600 font-semibold">勤務時間入力後に<strong class="font-bold">手動で申請</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Key Notes -->
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-xl font-bold text-slate-800 mb-4">その他の重要事項</h3>
+                        <div class="space-y-4">
+                            <div class="bg-red-100 border-l-4 border-red-500 text-red-800 p-4 rounded-md">
+                                <p class="font-bold">⚠️ カスタマイズについて</p>
+                                <p class="mt-1">新システムは「勤之助」と異なり、弊所の運用に合わせたカスタマイズはされていません。
+                                <strong class="font-semibold">HRMOS勤怠の標準機能に合わせて、弊所の運用を調整</strong>しますので、ご留意ください。</p>
+                            </div>
+                            <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-4 rounded-md">
+                                <p class="font-bold">ℹ️ 休暇・特例申請について</p>
+                                <p class="mt-1">有給休暇、半休、時間休、直行直帰などの申請方法は、別途「休暇・特例申請マニュアル」を配布する予定です。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="text-center text-sm text-slate-500 mt-12 py-6 border-t border-slate-200">
+            ご不明な点がある場合は、総務担当者までお問い合わせください。
+        </footer>
+        
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnOffice = document.getElementById('btn-office');
+            const btnRemote = document.getElementById('btn-remote');
+            const flowOffice = document.getElementById('flow-office');
+            const flowRemote = document.getElementById('flow-remote');
+
+            const activeClass = ['bg-blue-600', 'text-white'];
+            const inactiveClass = ['bg-white', 'text-blue-600', 'border', 'border-blue-600', 'hover:bg-blue-50'];
+
+            btnOffice.addEventListener('click', () => {
+                flowOffice.classList.remove('hidden');
+                flowRemote.classList.add('hidden');
+                
+                btnOffice.classList.remove(...inactiveClass);
+                btnOffice.classList.add(...activeClass);
+                
+                btnRemote.classList.remove(...activeClass);
+                btnRemote.classList.add(...inactiveClass);
+            });
+
+            btnRemote.addEventListener('click', () => {
+                flowRemote.classList.remove('hidden');
+                flowOffice.classList.add('hidden');
+                
+                btnRemote.classList.remove(...inactiveClass);
+                btnRemote.classList.add(...activeClass);
+                
+                btnOffice.classList.remove(...activeClass);
+                btnOffice.classList.add(...inactiveClass);
+            });
+        });
+    </script>
+</body>
+</html>
